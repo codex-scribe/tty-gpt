@@ -1,5 +1,6 @@
 # tty-gpt
 A simple program for communicating with chatgpt through a TTY terminal.
+
 By Matt Brandenburgh / codex-scribe
 
 # To get started
