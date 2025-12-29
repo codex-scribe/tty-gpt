@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+
+import requests
+import sys
+import subprocess
+import pathlib
+from pathlib import Path
+
+API_KEY = Path.home() / ".config/chatgpt/api_key"
+
+BLUE = "\033[34m"
+WHITE = "\033[37m"
+RESET = "\033[0m"
+
+if not API_KEY.exists():
+    print("API key not found.", file=sys.stderr)
+    sys.exit(1)
+
+with open(API_KEY) as f:
+    key = f.read().strip()
+
+endpoint = "https://api.openai.com/v1/chat/completions"
+
+headers = {
+    "Authorization": f"Bearer {key}",
+    "Content-Type": "application/json",
+}
+
+messages = [
+    {
+        "role":"system",
+        "content":"You are a concise, technically precise assistant operating in a Linux TTY."
+    }
+]
+
+def page(text):
+    pager = subprocess.Popen(
+        ["less", "-R"],
+        stdin=subprocess.PIPE
+    )
+    pager.stdin.write(text.encode())
+    pager.stdin.close()
+    pager.wait()
+
+def load_file(path):
+    p = pathlib.Path(path).expanduser().resolve()
+    if not  p.exists():
+        return f"[error] File not found: {p}"
+    if not p.is_file():
+        return f"[error] Not a file: {p}"
+
+    return p.read_text(errors="replace")
+
+def main():
+    print("TTY-GPT (CTRL-D to exit)\n")
+    while True:
+        try: prompt = input("> ")
+        except EOFError:
+            break
+
+        if prompt == "/history":
+            page("\n\n".join(
+                f"{BLUE}user:{RESET} {BLUE}{m['content']}{RESET}"
+                if m["role"] == "user"
+                else f"{WHITE}bot:{RESET} {WHITE}{m['content']}{RESET}"
+                for m in messages
+                if m["role"] in ("user", "assistant")
+            ))
+            continue
+
+        if prompt.startswith("/load"):
+            path = prompt.split(" ", 1)[1]
+            content = load_file(path)
+
+            if content.startswith("[error]"):
+                print(content)
+                continue
+
+            messages.append({
+                "role": "user",
+                "content": f"Here is the content of {path}: \n\n{content}"
+            })
+
+            print(f"[loaded {path}]")
+            continue
+
+        messages.append({"role": "user", "content": prompt})
+
+        payload = {
+            "model": "gpt-4.1-mini",
+            "messages": messages,
+            "temperature": 0.3,
+        }
+
+        r = requests.post(endpoint, headers=headers, json=payload, timeout=30)
+        r.raise_for_status()
+
+        reply = r.json()["choices"][0]["message"]["content"]
+
+        messages.append({"role":"assistant", "content": reply})
+        page(reply + "\n")
+
+if __name__ == "__main__":
+    main()
