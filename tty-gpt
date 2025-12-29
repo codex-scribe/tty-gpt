@@ -29,7 +29,7 @@ headers = {
 messages = [
     {
         "role":"system",
-        "content":"You are a concise, technically precise assistant operating in a Linux TTY."
+        "content":"You are operating in a plain-text terminal. Do not use markdown, bold, italics, bullet points, or any special formatting. Format responses as plain, continuous lines of text suitable for a TTY environment."
     }
 ]
 
@@ -53,10 +53,24 @@ def load_file(path):
 
 def main():
     print("TTY-GPT (CTRL-D to exit)\n")
+
+    help_text = """
+Available commands:
+  /help               Show this help message.
+  /history            Show the conversation history so far.
+  /load <filepath>    Load a file and send its contents as part of the next user prompt.
+
+Simply type your question or prompt to interact with the assistant.
+"""
+
     while True:
         try: prompt = input("> ")
         except EOFError:
             break
+        
+        if prompt == "/help":
+            page(help_text)
+            continue
 
         if prompt == "/history":
             page("\n\n".join(
